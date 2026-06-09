@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Merge Intervals – @theshinelabs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a12;
+    --surface: #13131f;
+    --card: #1a1a2e;
+    --cyan: #00e5ff;
+    --mint: #00ffb3;
+    --coral: #ff5f6d;
+    --amber: #ffd166;
+    --white: #f0f4ff;
+    --muted: #4a4a6a;
+    --glow-cyan: 0 0 24px rgba(0,229,255,0.55), 0 0 48px rgba(0,229,255,0.25);
+    --glow-mint: 0 0 24px rgba(0,255,179,0.55), 0 0 48px rgba(0,255,179,0.25);
+    --glow-coral: 0 0 24px rgba(255,95,109,0.55);
+    --glow-amber: 0 0 24px rgba(255,209,102,0.55);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #stage {
+    width: 390px;
+    height: 693px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    border-radius: 24px;
+  }
+
+  /* ── Background grid ── */
+  #stage::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── Scenes ── */
+  .scene {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 32px 24px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .scene.active { opacity: 1; pointer-events: auto; }
+
+  /* ── Interval card ── */
+  .card {
+    background: var(--card);
+    border: 1.5px solid rgba(0,229,255,0.18);
+    border-radius: 16px;
+    padding: 14px 22px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--white);
+    white-space: nowrap;
+    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    user-select: none;
+  }
+  .card.glow-active {
+    border-color: var(--cyan);
+    box-shadow: var(--glow-cyan);
+    color: var(--cyan);
+  }
+  .card.glow-mint {
+    border-color: var(--mint);
+    box-shadow: var(--glow-mint);
+    color: var(--mint);
+  }
+  .card.glow-coral {
+    border-color: var(--coral);
+    box-shadow: var(--glow-coral);
+    color: var(--coral);
+  }
+  .card.faded { opacity: 0.25; }
+  .card.merged-big {
+    font-size: 26px;
+    padding: 18px 30px;
+    background: linear-gradient(135deg, #0d1f2a 0%, #0a0a12 100%);
+  }
+
+  /* ── Labels ── */
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .label.highlight { color: var(--cyan); }
+  .label.answer-label { color: var(--mint); }
+
+  /* ── Section boxes ── */
+  .section-box {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1.5px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 16px 20px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 10px;
+  }
+  .section-box.cyan-box {
+    border-color: rgba(0,229,255,0.2);
+    background: rgba(0,229,255,0.04);
+  }
+  .section-box.mint-box {
+    border-color: rgba(0,255,179,0.2);
+    background: rgba(0,255,179,0.04);
+  }
+
+  /* ── Row of cards ── */
+  .card-row {
+    display: flex; flex-direction: row; align-items: center;
+    gap: 10px; flex-wrap: wrap; justify-content: center;
+  }
+
+  /* ── Overlap badge ── */
+  .badge {
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 99px;
+    padding: 6px 16px;
+    letter-spacing: 0.06em;
+  }
+  .badge.yes {
+    background: rgba(0,255,179,0.15);
+    color: var(--mint);
+    border: 1.5px solid rgba(0,255,179,0.4);
+  }
+  .badge.no {
+    background: rgba(255,95,109,0.15);
+    color: var(--coral);
+    border: 1.5px solid rgba(255,95,109,0.4);
+  }
+
+  /* ── Big text ── */
+  .headline {
+    font-size: 28px; font-weight: 900;
+    color: var(--white); text-align: center;
+    line-height: 1.2;
+  }
+  .headline span { color: var(--cyan); }
+  .subtext {
+    font-size: 14px; font-weight: 500;
+    color: var(--muted); text-align: center;
+    line-height: 1.6;
+  }
+  .subtext span { color: var(--amber); font-weight: 700; }
+
+  /* ── Arrow ── */
+  .arrow-down {
+    font-size: 22px; color: var(--muted); line-height: 1;
+  }
+
+  /* ── Progress bar ── */
+  #progress {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.07);
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--mint));
+    width: 0%;
+    transition: width 0.3s linear;
+    border-radius: 0 2px 2px 0;
+  }
+
+  /* ── Scene-specific animations ── */
+
+  /* S1: cards scatter → align */
+  #s1 .scattered { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #s1 .card-item { transition: all 0.55s cubic-bezier(0.34,1.3,0.64,1); }
+
+  /* S-aha overlap highlight */
+  .overlap-highlight {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: rgba(0,229,255,0.18);
+    border-radius: 8px;
+    pointer-events: none;
+  }
+
+  /* Merge flash */
+  @keyframes mergeFlash {
+    0%   { box-shadow: 0 0 0px rgba(0,255,179,0); }
+    40%  { box-shadow: 0 0 60px rgba(0,255,179,0.8), 0 0 100px rgba(0,255,179,0.4); }
+    100% { box-shadow: var(--glow-mint); }
+  }
+  .merge-flash { animation: mergeFlash 0.6s ease forwards; }
+
+  /* Bounce in */
+  @keyframes bounceIn {
+    0%   { opacity:0; transform: scale(0.5) translateY(30px); }
+    70%  { transform: scale(1.08) translateY(-4px); }
+    100% { opacity:1; transform: scale(1) translateY(0); }
+  }
+  .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  /* Slide up */
+  @keyframes slideUp {
+    from { opacity:0; transform: translateY(40px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  .slide-up { animation: slideUp 0.5s ease forwards; }
+
+  /* Fade in */
+  @keyframes fadeIn {
+    from { opacity:0; } to { opacity:1; }
+  }
+  .fade-in { animation: fadeIn 0.5s ease forwards; }
+
+  /* Pulse border */
+  @keyframes pulseBorder {
+    0%, 100% { box-shadow: 0 0 16px rgba(0,229,255,0.4); }
+    50%       { box-shadow: 0 0 40px rgba(0,229,255,0.9), 0 0 80px rgba(0,229,255,0.3); }
+  }
+  .pulse { animation: pulseBorder 1.2s ease-in-out infinite; }
+
+  /* Checkmark / cross pop */
+  @keyframes iconPop {
+    0%   { transform: scale(0) rotate(-20deg); opacity:0; }
+    60%  { transform: scale(1.3) rotate(5deg); opacity:1; }
+    100% { transform: scale(1) rotate(0); opacity:1; }
+  }
+  .icon-pop { animation: iconPop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  /* Move to answer */
+  @keyframes flyLeft {
+    from { transform: translateX(0); opacity:1; }
+    to   { transform: translateX(-160px) scale(0.8); opacity:0; }
+  }
+  .fly-out { animation: flyLeft 0.5s ease forwards; }
+
+  /* Glow ping on merge */
+  @keyframes ping {
+    0%   { transform: scale(1); opacity:0.8; }
+    100% { transform: scale(2); opacity:0; }
+  }
+  .ping {
+    position: absolute; inset: -4px;
+    border-radius: 18px;
+    border: 2px solid var(--mint);
+    animation: ping 0.7s ease-out forwards;
+    pointer-events: none;
+  }
+
+  /* Brand tag */
+  #brand {
+    position: absolute;
+    bottom: 14px; right: 18px;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.1em;
+    color: rgba(0,229,255,0.35);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Scene counter */
+  #scene-counter {
+    position: absolute;
+    top: 16px; left: 20px;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.12em;
+    color: rgba(255,255,255,0.18);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Comparison line (AHA scene) ── */
+  .compare-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .compare-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .vs-line {
+    width: 1.5px; height: 60px;
+    background: linear-gradient(to bottom, transparent, var(--muted), transparent);
+  }
+  .x-mark {
+    font-size: 16px; color: var(--coral); font-weight: 900;
+  }
+  .check-mark {
+    font-size: 16px; color: var(--mint); font-weight: 900;
+  }
+  .dim-cards { display: flex; gap: 8px; }
+  .dim-card {
+    background: rgba(255,95,109,0.08);
+    border: 1px solid rgba(255,95,109,0.2);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: rgba(255,95,109,0.6);
+    font-weight: 600;
+  }
+  .bright-card {
+    background: rgba(0,255,179,0.1);
+    border: 1.5px solid rgba(0,255,179,0.4);
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    color: var(--mint);
+    font-weight: 700;
+    box-shadow: var(--glow-mint);
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- ░░ SCENE 0 – Title ░░ -->
+  <div class="scene active" id="s0">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.18em;color:var(--cyan);text-transform:uppercase;" class="fade-in">Dry Run</div>
+      <div class="headline fade-in" style="animation-delay:0.15s;font-size:34px;">
+        Merge<br><span>Intervals</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px;" id="s0cards">
+        <div class="card" style="font-size:15px;padding:10px 16px;opacity:0;animation:bounceIn 0.5s 0.3s forwards;">[1,3]</div>
+        <div class="card" style="font-size:15px;padding:10px 16px;opacity:0;animation:bounceIn 0.5s 0.45s forwards;">[2,6]</div>
+        <div class="card" style="font-size:15px;padding:10px 16px;opacity:0;animation:bounceIn 0.5s 0.6s forwards;">[8,10]</div>
+        <div class="card" style="font-size:15px;padding:10px 16px;opacity:0;animation:bounceIn 0.5s 0.75s forwards;">[15,18]</div>
+      </div>
+      <div class="subtext" style="opacity:0;animation:fadeIn 0.5s 1s forwards;max-width:280px;">
+        Watch how overlapping intervals <span>collapse</span> step by step
+      </div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 1 – Input + Sort ░░ -->
+  <div class="scene" id="s1">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:24px;width:100%;">
+      <div class="label" id="s1-label">Input Intervals</div>
+      <!-- scattered -->
+      <div id="s1-scatter" style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;transition:all 0.6s ease;">
+        <div class="card" style="transform:rotate(-4deg) translateY(8px)">[1,3]</div>
+        <div class="card" style="transform:rotate(3deg) translateY(-6px)">[2,6]</div>
+        <div class="card" style="transform:rotate(-2deg) translateY(12px)">[8,10]</div>
+        <div class="card" style="transform:rotate(5deg) translateY(-4px)">[15,18]</div>
+      </div>
+      <div id="s1-hint" class="subtext" style="opacity:0;">↓&nbsp; Let's sort them</div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 2 – Pick first ░░ -->
+  <div class="scene" id="s2">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;">
+
+      <!-- All cards row -->
+      <div class="card-row" id="s2-all">
+        <div class="card glow-active pulse" id="s2-c0">[1,3]</div>
+        <div class="card faded" id="s2-c1">[2,6]</div>
+        <div class="card faded" id="s2-c2">[8,10]</div>
+        <div class="card faded" id="s2-c3">[15,18]</div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <!-- Current merged box -->
+      <div class="section-box cyan-box" style="opacity:0;" id="s2-box">
+        <div class="label highlight">Current Merged</div>
+        <div class="card glow-active merged-big">[1,3]</div>
+      </div>
+
+      <div class="subtext" style="opacity:0;" id="s2-sub">We start with the first interval</div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 3 – Merge [1,3]+[2,6]=[1,6] ░░ -->
+  <div class="scene" id="s3">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;">
+
+      <!-- Approaching cards -->
+      <div style="display:flex;align-items:center;gap:0;position:relative;" id="s3-approach">
+        <div class="card glow-active merged-big" id="s3-left">[1,3]</div>
+        <div id="s3-arrow" style="font-size:22px;color:var(--cyan);padding:0 8px;opacity:0;">←</div>
+        <div class="card" id="s3-right" style="opacity:0;">[2,6]</div>
+      </div>
+
+      <!-- Overlap question -->
+      <div id="s3-q" style="opacity:0;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="subtext">Do they overlap?</div>
+        <div class="badge yes icon-pop">✓ Yes! 2 ≤ 3</div>
+      </div>
+
+      <div class="arrow-down" id="s3-down" style="opacity:0;">↓</div>
+
+      <!-- Merged result -->
+      <div id="s3-result" style="opacity:0;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="position:relative;display:inline-block;">
+          <div class="card glow-mint merged-big merge-flash" id="s3-merged">[1,6]</div>
+        </div>
+        <div class="label answer-label">Merged → take the wider span</div>
+      </div>
+
+      <div class="section-box cyan-box" id="s3-box" style="opacity:0;width:100%;">
+        <div class="label highlight">Current Merged</div>
+        <div class="card glow-mint merged-big">[1,6]</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 4 – No merge [1,6] vs [8,10] ░░ -->
+  <div class="scene" id="s4">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;">
+
+      <div style="display:flex;align-items:center;gap:16px;" id="s4-row">
+        <div class="card glow-mint merged-big" id="s4-left">[1,6]</div>
+        <div style="width:32px;height:2px;background:var(--muted);border-radius:2px;"></div>
+        <div class="card" id="s4-right" style="opacity:0;">[8,10]</div>
+      </div>
+
+      <div id="s4-q" style="opacity:0;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="subtext">Do they overlap?</div>
+        <div class="badge no icon-pop">✕ No! 8 &gt; 6</div>
+      </div>
+
+      <!-- Gap visual -->
+      <div id="s4-gap" style="opacity:0;display:flex;align-items:flex-end;gap:4px;">
+        <div style="width:60px;height:12px;background:rgba(0,255,179,0.25);border-radius:4px 4px 0 0;"></div>
+        <div style="width:28px;height:12px;background:rgba(255,255,255,0.05);border-radius:4px;border:1px dashed var(--muted);display:flex;align-items:center;justify-content:center;">
+          <span style="font-size:8px;color:var(--muted);">gap</span>
+        </div>
+        <div style="width:50px;height:12px;background:rgba(0,229,255,0.2);border-radius:4px 4px 0 0;"></div>
+      </div>
+
+      <!-- Answer and new current -->
+      <div style="display:flex;flex-direction:column;gap:12px;width:100%;opacity:0;" id="s4-result">
+        <div class="section-box mint-box">
+          <div class="label answer-label">Answer so far</div>
+          <div class="card glow-mint">[1,6]</div>
+        </div>
+        <div class="section-box cyan-box">
+          <div class="label highlight">Current Merged</div>
+          <div class="card glow-active">[8,10]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 5 – No merge [8,10] vs [15,18] ░░ -->
+  <div class="scene" id="s5">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;">
+
+      <div style="display:flex;align-items:center;gap:16px;" id="s5-row">
+        <div class="card glow-active merged-big" id="s5-left">[8,10]</div>
+        <div style="width:32px;height:2px;background:var(--muted);border-radius:2px;"></div>
+        <div class="card" id="s5-right" style="opacity:0;">[15,18]</div>
+      </div>
+
+      <div id="s5-q" style="opacity:0;display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div class="subtext">Do they overlap?</div>
+        <div class="badge no icon-pop">✕ No! 15 &gt; 10</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;width:100%;opacity:0;" id="s5-result">
+        <div class="section-box mint-box">
+          <div class="label answer-label">Answer so far</div>
+          <div class="card-row">
+            <div class="card glow-mint" style="font-size:16px;">[1,6]</div>
+            <div class="card glow-mint" style="font-size:16px;">[8,10]</div>
+          </div>
+        </div>
+        <div class="section-box cyan-box">
+          <div class="label highlight">Current Merged</div>
+          <div class="card glow-active">[15,18]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 6 – Final answer ░░ -->
+  <div class="scene" id="s6">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;">
+      <div class="label answer-label" style="font-size:12px;">End of array → push last interval</div>
+
+      <div class="section-box mint-box" style="width:100%;">
+        <div class="label answer-label" style="font-size:13px;">✦ Final Answer</div>
+        <div class="card-row" id="s6-cards">
+          <div class="card glow-mint bounce-in" style="font-size:17px;">[1,6]</div>
+          <div class="card glow-mint bounce-in" style="font-size:17px;animation-delay:0.15s;">[8,10]</div>
+          <div class="card glow-mint bounce-in" style="font-size:17px;animation-delay:0.3s;">[15,18]</div>
+        </div>
+      </div>
+
+      <div class="subtext slide-up" style="animation-delay:0.6s;opacity:0;max-width:300px;font-size:13px;">
+        3 separate groups — no overlaps between them
+      </div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 7 – AHA moment ░░ -->
+  <div class="scene" id="s7">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;">
+
+      <div class="headline" style="font-size:22px;" id="s7-h1" >
+        The <span>key insight</span>
+      </div>
+
+      <!-- Merge demo -->
+      <div id="s7-merge" style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0;">
+        <div class="card-row">
+          <div class="card" style="font-size:15px;padding:10px 15px;">[1,3]</div>
+          <div style="font-size:18px;color:var(--cyan);font-weight:800;">+</div>
+          <div class="card" style="font-size:15px;padding:10px 15px;">[2,6]</div>
+        </div>
+        <div style="font-size:22px;color:var(--muted);">↓</div>
+        <div class="card glow-mint" style="font-size:18px;">[1,6]</div>
+      </div>
+
+      <div style="width:100%;height:1px;background:rgba(255,255,255,0.06);"></div>
+
+      <!-- Keep vs discard -->
+      <div style="display:flex;gap:20px;width:100%;opacity:0;" id="s7-compare">
+        <div class="compare-col" style="flex:1;">
+          <div style="font-size:10px;font-weight:700;color:var(--coral);letter-spacing:0.1em;text-transform:uppercase;">✕ Store all</div>
+          <div class="dim-cards">
+            <div class="dim-card">[1,3]</div>
+            <div class="dim-card">[2,6]</div>
+          </div>
+        </div>
+        <div class="vs-line"></div>
+        <div class="compare-col" style="flex:1;">
+          <div style="font-size:10px;font-weight:700;color:var(--mint);letter-spacing:0.1em;text-transform:uppercase;">✓ Just keep</div>
+          <div class="bright-card">[1,6]</div>
+        </div>
+      </div>
+
+      <div style="opacity:0;" id="s7-text">
+        <div class="subtext" style="font-size:13px;color:var(--white);font-weight:600;">Only the <span style="color:var(--cyan);">latest merged</span> interval matters.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ░░ SCENE 8 – Grand finale ░░ -->
+  <div class="scene" id="s8">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;width:100%;">
+
+      <div class="headline" id="s8-h" style="font-size:20px;opacity:0;">
+        Overlapping intervals <span>collapse</span><br>into groups
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center;opacity:0;" id="s8-cards">
+        <div class="card glow-mint bounce-in" style="font-size:16px;">[1,6]</div>
+        <div class="card glow-mint bounce-in" style="font-size:16px;animation-delay:0.1s;">[8,10]</div>
+        <div class="card glow-mint bounce-in" style="font-size:16px;animation-delay:0.2s;">[15,18]</div>
+      </div>
+
+      <div style="opacity:0;width:100%;" id="s8-credit">
+        <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:0.06em;">
+          @theshinelabs
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress"><div id="progress-fill"></div></div>
+  <div id="brand">@theshinelabs</div>
+  <div id="scene-counter" id="scn">1 / 8</div>
+
+</div>
+
+<script>
+// ── helpers ──
+const $ = id => document.getElementById(id);
+const delay = ms => new Promise(r => setTimeout(r, ms));
+const show = (el, anim) => {
+  el.style.opacity = '1';
+  if (anim) el.classList.add(anim);
+};
+const hide = el => { el.style.opacity = '0'; };
+
+let currentScene = 0;
+const totalScenes = 9;
+
+function setProgress(pct) {
+  $('progress-fill').style.width = pct + '%';
+}
+
+function showScene(id) {
+  document.querySelectorAll('.scene').forEach(s => {
+    s.classList.remove('active');
+    s.style.opacity = '0';
+  });
+  const s = document.getElementById(id);
+  s.classList.add('active');
+  s.style.opacity = '1';
+}
+
+// ── Scene orchestration ──
+
+async function runScene0() {
+  showScene('s0');
+  setProgress(5);
+  $('scene-counter').textContent = '1 / 8';
+  await delay(2200);
+}
+
+async function runScene1() {
+  showScene('s1');
+  setProgress(16);
+  $('scene-counter').textContent = '2 / 8';
+  await delay(1200);
+  // Show hint
+  const hint = $('s1-hint');
+  hint.style.opacity = '1';
+  hint.style.transition = 'opacity 0.4s';
+  await delay(700);
+  // Un-rotate cards
+  const scatter = $('s1-scatter');
+  const cards = scatter.querySelectorAll('.card');
+  cards.forEach(c => {
+    c.style.transition = 'all 0.55s cubic-bezier(0.34,1.3,0.64,1)';
+    c.style.transform = 'rotate(0deg) translateY(0)';
+  });
+  await delay(1200);
+}
+
+async function runScene2() {
+  showScene('s2');
+  setProgress(28);
+  $('scene-counter').textContent = '3 / 8';
+  await delay(800);
+  const box = $('s2-box');
+  box.style.transition = 'opacity 0.5s';
+  show(box, 'slide-up');
+  await delay(600);
+  const sub = $('s2-sub');
+  sub.style.transition = 'opacity 0.5s';
+  show(sub);
+  await delay(1200);
+}
+
+async function runScene3() {
+  showScene('s3');
+  setProgress(42);
+  $('scene-counter').textContent = '4 / 8';
+  await delay(600);
+
+  // bring [2,6] in
+  const right = $('s3-right');
+  const arr = $('s3-arrow');
+  right.style.transition = 'opacity 0.4s, transform 0.5s cubic-bezier(0.34,1.3,0.64,1)';
+  right.style.transform = 'translateX(40px)';
+  right.style.opacity = '0';
+  await delay(100);
+  right.style.opacity = '1';
+  right.style.transform = 'translateX(0)';
+  arr.style.transition = 'opacity 0.3s';
+  arr.style.opacity = '1';
+  await delay(700);
+
+  // overlap question
+  const q = $('s3-q');
+  q.style.transition = 'opacity 0.4s';
+  show(q);
+  await delay(900);
+
+  // hide approach, show down arrow
+  $('s3-approach').style.transition = 'opacity 0.3s';
+  $('s3-approach').style.opacity = '0';
+  const down = $('s3-down');
+  down.style.transition = 'opacity 0.3s';
+  show(down);
+  await delay(300);
+
+  // show merged
+  const res = $('s3-result');
+  res.style.transition = 'opacity 0.4s';
+  show(res, 'bounce-in');
+  await delay(900);
+
+  // show current merged box
+  const box = $('s3-box');
+  box.style.transition = 'opacity 0.5s';
+  show(box);
+  // hide other elements
+  q.style.opacity = '0';
+  down.style.opacity = '0';
+  res.style.opacity = '0';
+  await delay(1100);
+}
+
+async function runScene4() {
+  showScene('s4');
+  setProgress(56);
+  $('scene-counter').textContent = '5 / 8';
+  await delay(700);
+
+  // bring [8,10] in
+  const right = $('s4-right');
+  right.style.transition = 'opacity 0.5s, transform 0.55s cubic-bezier(0.34,1.3,0.64,1)';
+  right.style.transform = 'translateX(50px)';
+  await delay(50);
+  right.style.opacity = '1';
+  right.style.transform = 'translateX(0)';
+  await delay(700);
+
+  // overlap question
+  const q = $('s4-q');
+  q.style.transition = 'opacity 0.4s';
+  show(q);
+  await delay(600);
+
+  // gap visual
+  const gap = $('s4-gap');
+  gap.style.transition = 'opacity 0.4s';
+  show(gap);
+  await delay(800);
+
+  // result
+  const res = $('s4-result');
+  res.style.transition = 'opacity 0.5s';
+  show(res);
+  await delay(1400);
+}
+
+async function runScene5() {
+  showScene('s5');
+  setProgress(68);
+  $('scene-counter').textContent = '6 / 8';
+  await delay(700);
+
+  const right = $('s5-right');
+  right.style.transition = 'opacity 0.5s, transform 0.55s cubic-bezier(0.34,1.3,0.64,1)';
+  right.style.transform = 'translateX(50px)';
+  await delay(50);
+  right.style.opacity = '1';
+  right.style.transform = 'translateX(0)';
+  await delay(700);
+
+  const q = $('s5-q');
+  q.style.transition = 'opacity 0.4s';
+  show(q);
+  await delay(800);
+
+  const res = $('s5-result');
+  res.style.transition = 'opacity 0.5s';
+  show(res);
+  await delay(1400);
+}
+
+async function runScene6() {
+  showScene('s6');
+  setProgress(78);
+  $('scene-counter').textContent = '7 / 8';
+  await delay(1800);
+}
+
+async function runScene7() {
+  showScene('s7');
+  setProgress(88);
+  $('scene-counter').textContent = '8 / 8';
+  await delay(600);
+
+  const merge = $('s7-merge');
+  merge.style.transition = 'opacity 0.5s';
+  show(merge);
+  await delay(1000);
+
+  const compare = $('s7-compare');
+  compare.style.transition = 'opacity 0.5s';
+  show(compare);
+  await delay(800);
+
+  const text = $('s7-text');
+  text.style.transition = 'opacity 0.5s';
+  show(text);
+  await delay(1400);
+}
+
+async function runScene8() {
+  showScene('s8');
+  setProgress(100);
+  $('scene-counter').textContent = '8 / 8';
+
+  await delay(400);
+  const h = $('s8-h');
+  h.style.transition = 'opacity 0.5s';
+  show(h, 'slide-up');
+
+  await delay(600);
+  const cards = $('s8-cards');
+  cards.style.transition = 'opacity 0.5s';
+  show(cards);
+
+  await delay(600);
+  const cred = $('s8-credit');
+  cred.style.transition = 'opacity 0.6s';
+  show(cred);
+  await delay(2000);
+}
+
+async function runAll() {
+  await runScene0();
+  await runScene1();
+  await runScene2();
+  await runScene3();
+  await runScene4();
+  await runScene5();
+  await runScene6();
+  await runScene7();
+  await runScene8();
+  // loop
+  await delay(1500);
+  runAll();
+}
+
+window.addEventListener('load', () => {
+  setTimeout(runAll, 300);
+});
+
+// Tap to skip
+let scenes = [runScene0,runScene1,runScene2,runScene3,runScene4,runScene5,runScene6,runScene7,runScene8];
+</script>
+</body>
+</html>
